@@ -1,0 +1,11 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente (contém senhas!)
+.env
+
+# Build do frontend
+dist/
+
+# Logs
+*.log
