@@ -4,15 +4,16 @@ import api from '../services/api';
 import Navbar from '../components/Navbar';
 import ProductCard from '../components/ProductCard';
 import ProductForm from '../components/ProductForm';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Dashboard() {
-  const [products, setProducts] = useState([]);       // lista de produtos
-  const [loading, setLoading] = useState(true);       // loading inicial
-  const [formLoading, setFormLoading] = useState(false); // loading do formulário
-  const [showForm, setShowForm] = useState(false);    // exibe ou não o modal
-  const [editingProduct, setEditingProduct] = useState(null); // produto em edição
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [confirmId, setConfirmId] = useState(null); // id do produto a deletar
 
-  // READ — Busca os produtos ao carregar a página
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -28,20 +29,16 @@ export default function Dashboard() {
     }
   };
 
-  // CREATE ou UPDATE — Decide qual operação fazer com base em editingProduct
   const handleSubmit = async (form) => {
     setFormLoading(true);
     try {
       if (editingProduct) {
-        // UPDATE
         const { data } = await api.put(`/api/products/${editingProduct.id}`, form);
-        // Atualiza o produto na lista sem precisar buscar tudo novamente
         setProducts(products.map((p) => (p.id === data.id ? data : p)));
         toast.success('Produto atualizado!');
       } else {
-        // CREATE
         const { data } = await api.post('/api/products', form);
-        setProducts([data, ...products]); // adiciona no início da lista
+        setProducts([data, ...products]);
         toast.success('Produto criado!');
       }
       closeForm();
@@ -52,25 +49,24 @@ export default function Dashboard() {
     }
   };
 
-  // DELETE — Remove o produto pelo ID
-  const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja deletar este produto?')) return;
+  // DELETE — chamado após confirmação no modal
+  const handleDelete = async () => {
     try {
-      await api.delete(`/api/products/${id}`);
-      setProducts(products.filter((p) => p.id !== id)); // remove da lista local
+      await api.delete(`/api/products/${confirmId}`);
+      setProducts(products.filter((p) => p.id !== confirmId));
       toast.success('Produto deletado!');
     } catch (err) {
       toast.error('Erro ao deletar produto');
+    } finally {
+      setConfirmId(null); // fecha o modal
     }
   };
 
-  // Abre o formulário em modo de edição
   const handleEdit = (product) => {
     setEditingProduct(product);
     setShowForm(true);
   };
 
-  // Fecha e reseta o formulário
   const closeForm = () => {
     setShowForm(false);
     setEditingProduct(null);
@@ -81,7 +77,6 @@ export default function Dashboard() {
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Cabeçalho da página */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">Meus Produtos</h2>
@@ -97,38 +92,44 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Estado de carregamento */}
         {loading ? (
           <div className="text-center text-gray-400 py-20">Carregando produtos...</div>
         ) : products.length === 0 ? (
-          // Estado vazio
           <div className="text-center text-gray-400 py-20">
             <p className="text-5xl mb-4">📦</p>
             <p className="text-lg font-medium">Nenhum produto ainda</p>
             <p className="text-sm mt-1">Clique em "Novo Produto" para começar</p>
           </div>
         ) : (
-          // Grade de produtos
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {products.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={(id) => setConfirmId(id)} // abre o modal de confirmação
               />
             ))}
           </div>
         )}
       </main>
 
-      {/* Modal do formulário (create/edit) */}
+      {/* Modal de criar/editar produto */}
       {showForm && (
         <ProductForm
           product={editingProduct}
           onSubmit={handleSubmit}
           onCancel={closeForm}
           loading={formLoading}
+        />
+      )}
+
+      {/* Modal de confirmação de exclusão */}
+      {confirmId && (
+        <ConfirmModal
+          message="Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita."
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmId(null)}
         />
       )}
     </div>
